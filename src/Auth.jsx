@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { supabase } from './supabaseClient'
-import { logger } from './logger'
+import { logger } from './logger.js'
 
 export default function Auth(){
   const [email,setEmail]=useState('')
