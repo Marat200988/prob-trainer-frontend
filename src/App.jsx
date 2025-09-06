@@ -5,6 +5,7 @@ import Auth from './Auth.jsx'
 import Quiz from './Quiz.jsx'
 import Curriculum from './Curriculum.jsx'
 import LogPanel from './LogPanel.jsx'
+import { logger } from './logger'
 
 export default function App(){
   const [session,setSession]=useState(null)
@@ -16,17 +17,27 @@ export default function App(){
   ])
 
   useEffect(()=>{ document.documentElement.classList.toggle('dark', theme==='dark'); localStorage.setItem('theme', theme) },[theme])
+
   useEffect(()=>{
-    supabase.auth.getSession().then(({data})=>setSession(data.session))
-    const { data: listener } = supabase.auth.onAuthStateChange((_e,s)=>setSession(s))
+    supabase.auth.getSession().then(({data})=>{
+      setSession(data.session)
+      logger.info('auth.session:init', { hasSession: !!data.session })
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((e,s)=>{
+      setSession(s)
+      logger.info('auth.state', { event: e, hasSession: !!s })
+    })
     return ()=>listener.subscription.unsubscribe()
   },[])
 
   if(!session){
-    return (<div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-      <Topbar theme={theme} setTheme={setTheme} />
-      <div className="max-w-md mx-auto p-6"><Auth/></div>
-    </div>)
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+        <Topbar theme={theme} setTheme={setTheme} />
+        <div className="max-w-md mx-auto p-6"><Auth/></div>
+        <LogPanel />
+      </div>
+    )
   }
 
   return (
