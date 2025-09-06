@@ -1,53 +1,52 @@
 import { useMemo, useState } from "react";
 
-/**
- * Универсальная нормализация вариантов:
- * - поддерживает объект вида {A:"...",B:"..."}
- * - поддерживает массив строк ["...","..."]
- * - возвращает [{key:"A", text:"..."}, ...]
- */
+/** Нормализация вариантов в универсальный массив [{key, text}] */
 function useNormalizedOptions(rawOptions) {
   return useMemo(() => {
     if (!rawOptions) return [];
-
     if (Array.isArray(rawOptions)) {
       const letters = ["A", "B", "C", "D", "E", "F", "G"];
       return rawOptions.map((t, i) => ({
-        key: letters[i] || `${i + 1}`,
+        key: letters[i] || String(i + 1),
         text: String(t ?? ""),
       }));
     }
-
     if (typeof rawOptions === "object") {
       return Object.entries(rawOptions).map(([k, v]) => ({
         key: String(k),
         text: String(v ?? ""),
       }));
     }
-
     return [];
   }, [rawOptions]);
 }
 
+function stripMd(md = "") {
+  return String(md || "")
+    .replace(/`{1,3}.*?`{1,3}/gs, "")
+    .replace(/[*_#>\[\]()`]/g, "")
+    .trim();
+}
+
 export default function QuestionCard({ q, onSubmit }) {
-  // Q: { id, section_id, title, question, content_md, options, type }
   const [answer, setAnswer] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState(null); // {correct, correctAnswer, brier, explanation_md}
+  const [result, setResult] = useState(null);
 
   const options = useNormalizedOptions(q?.options);
-  const disabled = submitting || !result || options.length === 0;
+  const disabled = submitting || !options.length;
 
-  const content = q.content_md ?? q.contentMd ?? q.content ?? "";
-
+  // Показываем максимум инфы: question -> title -> первая строка из content_md
+  const contentMd = q?.content_md || q?.contentMd || q?.content || "";
+  const fallbackFromMd = stripMd(contentMd).split("\n").filter(Boolean)[0] || "";
   const questionText =
     (q?.question && String(q.question)) ||
     (q?.title && String(q.title)) ||
-    "";
+    fallbackFromMd;
 
   async function handleSubmit() {
     if (disabled) return;
-    if (!answer) return; // ничего не выбрано
+    if (!answer) return;
     setSubmitting(true);
     try {
       const res = await onSubmit?.({
@@ -56,76 +55,70 @@ export default function QuestionCard({ q, onSubmit }) {
         userAnswer: answer,
       });
       setResult(res || null);
-    } catch (e) {
-      console.error("submit error", e);
+    } catch {
+      setResult({
+        correct: false,
+        brier: 0.49,
+        error: "Ошибка проверки",
+      });
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="p-4 bg-slate-800 rounded-xl mb-4 shadow-md">
-      <div className="mb-3 font-semibold text-base md:text-lg">
-        {questionText}
-      </div>
-      <div className="text-sm md:text-base whitespace-pre-wrap mb-3">
-        {content || (
-          <span className="text-white/50">Текст вопроса не получен</span>
-        )}
+    <div className="rounded-xl bg-slate-800/50 border border-white/10 p-4 space-y-3">
+      <div className="text-white/90 font-semibold text-base">
+        {questionText || "Задача"}
       </div>
 
+      {contentMd && (
+        <div className="text-white/70 text-sm whitespace-pre-wrap">
+          {contentMd}
+        </div>
+      )}
+
       <div className="space-y-2">
-        {options.map((opt) => (
+        {options.map((o) => (
           <label
-            key={opt.key}
-            className={`flex items-center space-x-2 p-2 rounded cursor-pointer ${
-              answer === opt.key
-                ? "bg-slate-600 text-white"
-                : "bg-slate-700 text-gray-200"
-            }`}
+            key={o.key}
+            className="flex items-center gap-3 text-white/90 text-sm"
           >
             <input
               type="radio"
-              name={`q-${q.id}`}
-              value={opt.key}
-              checked={answer === opt.key}
-              onChange={() => setAnswer(opt.key)}
-              className="hidden"
+              name={q.id}
+              value={o.key}
+              checked={answer === o.key}
+              onChange={() => setAnswer(o.key)}
+              className="accent-emerald-400"
             />
-            <span className="font-bold">{opt.key}.</span>
-            <span>{opt.text}</span>
+            <span>
+              {o.key}) {o.text}
+            </span>
           </label>
         ))}
       </div>
 
-      <div className="mt-3 flex items-center space-x-4">
+      <div className="flex items-center gap-3">
         <button
           onClick={handleSubmit}
-          disabled={disabled}
-          className={`px-4 py-2 rounded ${
-            disabled
-              ? "bg-slate-600 text-gray-400"
-              : "bg-blue-600 hover:bg-blue-700 text-white"
-          }`}
+          disabled={disabled || !answer}
+          className="px-4 py-2 rounded-lg bg-emerald-500 disabled:bg-slate-600 text-black font-medium"
         >
-          Ответить
+          {submitting ? "Проверяю…" : "Ответить"}
         </button>
-      </div>
 
-      {result && (
-        <div className="mt-3 p-3 rounded bg-slate-700">
-          {result.correct ? (
-            <div className="text-green-400 font-bold">Верно</div>
-          ) : (
-            <div className="text-red-400 font-bold">Неверно</div>
-          )}
-          {result.explanation_md && (
-            <div className="mt-2 whitespace-pre-wrap text-sm">
-              {result.explanation_md}
-            </div>
-          )}
-        </div>
-      )}
+        {result && (
+          <div
+            className={`text-sm px-2 py-1 rounded ${
+              result.correct ? "bg-emerald-600/30 text-emerald-300" : "bg-rose-700/30 text-rose-300"
+            }`}
+          >
+            {result.correct ? "Верно" : "Неверно"} • Brier:{" "}
+            {(result.brier ?? 0).toFixed(3)}
+          </div>
+        )}
+      </div>
     </div>
   );
-}
+        }
