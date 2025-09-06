@@ -1,13 +1,14 @@
-// Мини-логгер с подписчиками и буфером
+// Мини-логгер с буфером и подписчиками
 const buffer = [];
 const listeners = new Set();
 
 export const logger = {
-  level: "info", // 'debug' | 'info' | 'warn' | 'error'
   push(evt) {
-    const event = { ts: new Date().toISOString(), ...evt };
+    const event = { ts: new Date().toISOString(), level: evt.level || "info", msg: evt.msg || "", extra: evt.extra };
     buffer.push(event);
-    for (const fn of listeners) try { fn(event, buffer.slice()); } catch {}
+    for (const fn of listeners) {
+      try { fn(event, buffer.slice()); } catch {}
+    }
   },
   on(fn) { listeners.add(fn); return () => listeners.delete(fn); },
   getAll() { return buffer.slice(); },
@@ -18,7 +19,7 @@ export const logger = {
   error(msg, extra) { this.push({ level: "error", msg, extra }); },
 };
 
-// Перехват глобальных ошибок
+// Перехват глобальных ошибок и непросанных промисов
 if (typeof window !== "undefined") {
   window.addEventListener("error", (e) => {
     logger.error("window.onerror", { message: e.message, source: e.filename, lineno: e.lineno, colno: e.colno, error: String(e.error || "") });
@@ -27,13 +28,13 @@ if (typeof window !== "undefined") {
     logger.error("unhandledrejection", { reason: String(e.reason || "") });
   });
 
-  // Проксируем console.* (необязательно, но удобно)
+  // Проксируем console.* (удобно видеть в панели)
   ["log","info","warn","error"].forEach((m) => {
     const orig = console[m];
     console[m] = (...args) => {
-      try {
-        logger.push({ level: m === "log" ? "info" : m, msg: "console."+m, extra: args.map(String) });
-      } catch {}
+      try { logger.push({ level: m === "log" ? "info" : m, msg: "console."+m, extra: args.map(a => {
+        try { return typeof a === "string" ? a : JSON.stringify(a); } catch { return String(a); }
+      }) }); } catch {}
       orig(...args);
     };
   });
