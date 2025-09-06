@@ -252,7 +252,7 @@ export default function Quiz({ sections }) {
     //     })
     //   }
     // } catch {}
-  }
+  
 
   return (
     <div className="space-y-3">
