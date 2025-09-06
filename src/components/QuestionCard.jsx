@@ -1,31 +1,48 @@
 import { useMemo, useState } from "react";
 
 /** Нормализация вариантов в универсальный массив [{key, text}] */
+// --- замените целиком эту функцию ---
 function useNormalizedOptions(rawOptions) {
   return useMemo(() => {
     if (!rawOptions) return [];
+
+    // Массив
     if (Array.isArray(rawOptions)) {
       const letters = ["A", "B", "C", "D", "E", "F", "G"];
-      return rawOptions.map((t, i) => ({
-        key: letters[i] || String(i + 1),
-        text: String(t ?? ""),
-      }));
+      return rawOptions.map((item, i) => {
+        if (item && typeof item === "object") {
+          // Поддержка форматов {key,text}, {label,value}, {id,name}, {letter,option}
+          const key =
+            item.key ??
+            item.letter ??
+            item.value ??
+            item.id ??
+            letters[i] ??
+            String(i + 1);
+          const text =
+            item.text ??
+            item.label ??
+            item.value ??
+            item.option ??
+            item.name ??
+            "";
+          return { key: String(key), text: String(text) };
+        }
+        // Примитивная строка/число
+        return { key: letters[i] || String(i + 1), text: String(item ?? "") };
+      });
     }
+
+    // Объект {A:"...", B:"..."}
     if (typeof rawOptions === "object") {
       return Object.entries(rawOptions).map(([k, v]) => ({
         key: String(k),
         text: String(v ?? ""),
       }));
     }
+
     return [];
   }, [rawOptions]);
-}
-
-function stripMd(md = "") {
-  return String(md || "")
-    .replace(/`{1,3}.*?`{1,3}/gs, "")
-    .replace(/[*_#>\[\]()`]/g, "")
-    .trim();
 }
 
 export default function QuestionCard({ q, onSubmit }) {
@@ -122,3 +139,8 @@ export default function QuestionCard({ q, onSubmit }) {
     </div>
   );
         }
+{result?.explanation_md && (
+  <div className="text-white/70 text-sm whitespace-pre-wrap mt-2">
+    {result.explanation_md}
+  </div>
+)}
