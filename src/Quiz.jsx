@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { brierScore, todayKey } from './lib'
 import { supabase } from './supabaseClient'
-import { logger } from './logger'
+import { logger } from './logger.js'
 
 function Badge({ kind = 'default', children }) {
   const styles = {
