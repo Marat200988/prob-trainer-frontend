@@ -18,7 +18,19 @@ export const logger = {
   warn(msg, extra)  { this.push({ level: "warn",  msg, extra }); },
   error(msg, extra) { this.push({ level: "error", msg, extra }); },
 };
+// src/logger.js
 
+export function logInfo(message, data) {
+  console.log("INFO", message, data || "");
+}
+
+export function logError(message, data) {
+  console.error("ERROR", message, data || "");
+}
+
+export function logDebug(message, data) {
+  console.debug("DEBUG", message, data || "");
+}
 // Перехват глобальных ошибок и непросанных промисов
 if (typeof window !== "undefined") {
   window.addEventListener("error", (e) => {
