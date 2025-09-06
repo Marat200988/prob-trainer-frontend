@@ -5,7 +5,7 @@ import Auth from './Auth.jsx'
 import Quiz from './Quiz.jsx'
 import Curriculum from './Curriculum.jsx'
 import LogPanel from './LogPanel.jsx'
-import { logger } from './logger'
+import { logger } from './logger.js'
 
 export default function App(){
   const [session,setSession]=useState(null)
