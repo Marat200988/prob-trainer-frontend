@@ -12,9 +12,7 @@ export default function LogPanel({ floating = true }) {
   const [open, setOpen] = useState(false);
   const [logs, setLogs] = useState(logger.getAll());
 
-  useEffect(() => {
-    return logger.on((_evt, all) => setLogs(all));
-  }, []);
+  useEffect(() => logger.on((_e, all) => setLogs(all)), []);
 
   return (
     <>
@@ -34,7 +32,7 @@ export default function LogPanel({ floating = true }) {
           <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
             <div className="font-semibold">Логи (последние {logs.length})</div>
             <div className="flex items-center gap-2">
-              <button className="text-sm underline" onClick={() => setLogs([]) || logger.clear()}>Очистить</button>
+              <button className="text-sm underline" onClick={() => { logger.clear(); setLogs([]); }}>Очистить</button>
               <button className="text-sm underline" onClick={() => setOpen(false)}>Закрыть</button>
             </div>
           </div>
@@ -43,13 +41,13 @@ export default function LogPanel({ floating = true }) {
             {logs.map((l, i) => (
               <div key={i} className="rounded-lg p-2 bg-gray-50 dark:bg-gray-800">
                 <div className="flex items-center justify-between">
-                  <span className={levelColor[l.level] || ""}>{l.level.toUpperCase()}</span>
+                  <span className={levelColor[l.level] || ""}>{(l.level || "").toUpperCase()}</span>
                   <span className="text-xs text-gray-500">{l.ts}</span>
                 </div>
-                <div className="font-medium">{l.msg}</div>
+                <div className="font-medium break-words">{l.msg}</div>
                 {l.extra && (
-                  <pre className="whitespace-pre-wrap text-xs text-gray-600 dark:text-gray-300 mt-1">
-                    {JSON.stringify(l.extra, null, 2)}
+                  <pre className="whitespace-pre-wrap break-words text-xs text-gray-600 dark:text-gray-300 mt-1">
+                    {Array.isArray(l.extra) ? l.extra.join("\n") : JSON.stringify(l.extra, null, 2)}
                   </pre>
                 )}
               </div>
