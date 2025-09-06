@@ -176,30 +176,63 @@ export default function Quiz({ sections }) {
   const [loading, setLoading] = useState(false)
 
   async function loadQuestions() {
-    setLoading(true); setError(null)
-    const url = (import.meta.env.VITE_API_BASE || '') + '/gen-questions'
-    logger.info('fetch.gen-questions:start', { url })
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sections: sections.map((s) => ({ id: s.id, title: s.title })),
-          count: Math.max(6, sections.length),
-        }),
-      })
-      logger.info('fetch.gen-questions:status', { status: res.status })
-      if (!res.ok) throw new Error('API ' + res.status)
-      const data = await res.json()
-      setQuestions(data.questions || [])
-      logger.debug('fetch.gen-questions:ok', { n: (data.questions || []).length })
-    } catch (e) {
-      setError(String(e))
-      setQuestions([])
-      logger.error('fetch.gen-questions:fail', { error: String(e) })
-    } finally {
-      setLoading(false)
-    }
+  setLoading(true); setError(null)
+  const url = (import.meta.env.VITE_API_BASE || '') + '/gen-questions'
+  logger.info('fetch.gen-questions:start', { url })
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sections: sections.map((s) => ({ id: s.id, title: s.title })),
+        count: Math.max(6, sections.length),
+      }),
+    })
+    logger.info('fetch.gen-questions:status', { status: res.status })
+    if (!res.ok) throw new Error('API ' + res.status)
+    const data = await res.json()
+    setQuestions(data.questions || [])
+    logger.debug('fetch.gen-questions:ok', { n: (data.questions || []).length })
+  } catch (e) {
+    logger.error('fetch.gen-questions:fail', { error: String(e) })
+    setError(String(e))
+
+    // ---- ФОЛБЭК, чтобы можно было играть прямо сейчас ----
+    const fallback = [
+      {
+        id: 'fb-1',
+        type: 'mcq',
+        prompt: 'Монетка неидеальна: P(орёл)=0.6. Бросаем 5 раз. Какова наибольшая по вероятности сумма орлов?',
+        options: ['2', '3', '4', '5'],
+        answer: 1, // индекс 0..3 (правильный — "3")
+        explanation: 'Биномиальное распр.: n=5, p=0.6. Мода ≈ floor((n+1)p)=floor(6*0.6)=3.',
+        section_id: 'ev',
+        lesson_id: 'ev-1',
+      },
+      {
+        id: 'fb-2',
+        type: 'numeric',
+        prompt: 'Тест на болезнь: чувствительность 90%, специфичность 95%, базовый риск 2%. Пациент положительный. Оцените PPV (в %).',
+        answer: 27.7,
+        explanation: 'Байес: P(D|+) = (0.9*0.02) / (0.9*0.02 + 0.05*0.98) ≈ 0.277.',
+        section_id: 'bayes',
+        lesson_id: 'bayes-1',
+      },
+      {
+        id: 'fb-3',
+        type: 'short',
+        prompt: 'Как называется ошибка, когда игнорируют базовые частоты?',
+        answer: 'base rate neglect',
+        explanation: 'Игнорирование базовых частот (base rate neglect).',
+        section_id: 'bayes',
+        lesson_id: 'bayes-1',
+      },
+    ]
+    setQuestions(fallback)
+    // ---- конец фолбэка ----
+  } finally {
+    setLoading(false)
+  }
   }
 
   useEffect(() => { loadQuestions() }, [sections.map((s) => s.id).join(',')])
