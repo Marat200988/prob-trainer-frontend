@@ -4,6 +4,7 @@ import Topbar from './Topbar.jsx'
 import Auth from './Auth.jsx'
 import Quiz from './Quiz.jsx'
 import Curriculum from './Curriculum.jsx'
+import LogPanel from './LogPanel.jsx'
 
 export default function App(){
   const [session,setSession]=useState(null)
@@ -28,11 +29,14 @@ export default function App(){
     </div>)
   }
 
-  return (<div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-    <Topbar theme={theme} setTheme={setTheme} onLogout={()=>supabase.auth.signOut()} />
-    <main className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
-      <Quiz sections={sections} />
-      <Curriculum sections={sections} />
-    </main>
-  </div>)
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <Topbar theme={theme} setTheme={setTheme} onLogout={()=>supabase.auth.signOut()} />
+      <main className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
+        <Quiz sections={sections} />
+        <Curriculum sections={sections} />
+      </main>
+      <LogPanel />
+    </div>
+  )
 }
