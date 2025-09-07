@@ -2,196 +2,109 @@ import { useMemo, useState } from "react";
 
 /**
  * Универсальная нормализация вариантов:
- * - принимает объект {"A":"...","B":"..."} или массив ["...","..."]
+ * - принимает объект вида {"A":"...","B":"..."}
+ * - или массив строк ["...","..."]
  * - возвращает [{key:"A", text:"..."}, ...]
  */
 function useNormalizedOptions(rawOptions) {
   return useMemo(() => {
     if (!rawOptions) return [];
-    // Массив строк
     if (Array.isArray(rawOptions)) {
-      const letters = ["A", "B", "C", "D", "E", "F", "G"];
-      return rawOptions.map((t, i) => ({
-        key: letters[i] || `${i + 1}`,
-        text: String(t ?? ""),
-      }));
+      const letters = ["A","B","C","D","E","F","G"];
+      return rawOptions.map((t, i) => ({ key: letters[i] || String(i + 1), text: String(t ?? "") }));
     }
-    // Объект {A:"...", B:"..."}
     if (typeof rawOptions === "object") {
-      return Object.entries(rawOptions).map(([k, v]) => ({
-        key: String(k),
-        text: String(v ?? ""),
-      }));
+      return Object.entries(rawOptions).map(([k, v]) => ({ key: String(k), text: String(v ?? "") }));
     }
     return [];
   }, [rawOptions]);
 }
 
-/**
- * Карточка вопроса
- * props:
- *  - q: { id, section_id, title, question, content_md, options, type }
- *  - onSubmit: async ({ qid, type, userAnswer, confidence }) => {correct, correctAnswer, explanation_md, brier}
- */
-export default function QuestionCard({ q, onSubmit }) {
+export default function QuestionCard({ q, genId, onSubmit }) {
+  // q: { id, title, question, content, content_md, options, type }
   const [answer, setAnswer] = useState(null);
-  const [confidence, setConfidence] = useState(0.7); // 70%
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null); // {correct, correctAnswer, brier, explanation_md}
 
   const options = useNormalizedOptions(q?.options);
-  const disabled = submitting || !q || options.length === 0;
+  const disabled = submitting || !options.length;
 
-  // Текст вопроса: берём question → content_md → title (на всякий случай)
+  const content = q?.content_md ?? q?.content ?? "";
   const questionText =
     (q?.question && String(q.question)) ||
-    (q?.content_md && String(q.content_md)) ||
-    (q?.content && String(q.content)) ||
     (q?.title && String(q.title)) ||
-    "";
+    ""; // На всякий случай
 
   async function handleSubmit() {
     if (disabled) return;
     if (!answer) return; // ничего не выбрано
     setSubmitting(true);
-    setResult(null);
     try {
-      const payload = {
+      const res = await onSubmit({
+        genId,
         qid: q.id,
         type: q.type || "mcq",
-        userAnswer: answer,           // ⚠️ ОБЯЗАТЕЛЬНО
-        confidence: Math.round(confidence * 100), // в процентах, если бек ждёт %
-      };
-      const res = await onSubmit?.(payload);
+        userAnswer: answer, // ключ "A" | "B" | ...
+      });
       setResult(res || null);
     } catch (e) {
-      console.error("question.submit:error", e);
-      setResult({ error: e?.message || "Ошибка отправки" });
+      setResult({ error: e?.message || String(e) });
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 md:p-5 space-y-3">
-      {/* Заголовок (секция) */}
-      {q?.section_title && (
-        <div className="text-xs uppercase tracking-wide text-white/60">
-          {q.section_title}
-        </div>
-      )}
-
-      {/* Тайтл вопроса */}
-      {q?.title && (
-        <h3 className="text-lg font-semibold text-white/90">
-          {q.title}
-        </h3>
-      )}
-
-      {/* Текст вопроса */}
+    <div className="rounded-2xl bg-slate-800/40 p-4 mb-6">
       {questionText && (
-        <p className="text-sm leading-relaxed text-white/80 whitespace-pre-wrap">
-          {questionText}
-        </p>
+        <h3 className="text-lg font-semibold mb-2">{questionText}</h3>
+      )}
+      {content && (
+        <p className="text-slate-300 whitespace-pre-wrap mb-3">{content}</p>
       )}
 
-      {/* Варианты */}
-      <div className="mt-2 space-y-2">
-        {options.map((opt) => (
-          <label
-            key={opt.key}
-            className={`flex items-center gap-3 rounded-xl px-3 py-2 cursor-pointer border ${
-              answer === opt.key
-                ? "border-emerald-400/60 bg-emerald-400/10"
-                : "border-white/10 hover:bg-white/5"
-            }`}
-          >
+      <div className="space-y-2">
+        {options.map(opt => (
+          <label key={opt.key} className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"
               name={`q-${q.id}`}
-              className="h-4 w-4 accent-emerald-500"
+              value={opt.key}
               checked={answer === opt.key}
-              onChange={() => setAnswer(opt.key)}
-              disabled={submitting}
+              onChange={(e) => setAnswer(e.target.value)} // <-- ВСЕГДА ключ!
+              className="accent-emerald-500"
             />
-            <span className="text-sm text-white/90">
-              <span className="font-semibold mr-1">{opt.key})</span>
-              {opt.text}
-            </span>
+            <span>{opt.key}) {opt.text}</span>
           </label>
         ))}
       </div>
 
-      {/* Уверенность */}
-      <div className="flex items-center justify-between gap-3 pt-2">
-        <span className="text-sm text-white/70">Уверенность:</span>
-        <div className="flex-1 flex items-center gap-3">
-          <input
-            type="range"
-            min={0.5}
-            max={1}
-            step={0.01}
-            value={confidence}
-            onChange={(e) => setConfidence(parseFloat(e.target.value))}
-            className="w-full"
-            disabled={submitting}
-          />
-          <span className="text-xs rounded-md bg-white/10 px-2 py-1 text-white/80">
-            {Math.round(confidence * 100)}%
-          </span>
-        </div>
-      </div>
+      <button
+        onClick={handleSubmit}
+        disabled={disabled || !answer}
+        className="mt-4 px-4 py-2 rounded-lg bg-emerald-600 disabled:bg-emerald-800"
+      >
+        Ответить
+      </button>
 
-      {/* Кнопка */}
-      <div className="pt-1">
-        <button
-          onClick={handleSubmit}
-          disabled={disabled || !answer}
-          className={`px-4 py-2 rounded-xl font-medium transition-colors ${
-            disabled || !answer
-              ? "bg-white/10 text-white/40 cursor-not-allowed"
-              : "bg-emerald-500/90 hover:bg-emerald-500 text-white"
-          }`}
-        >
-          {submitting ? "Отправка..." : "Ответить"}
-        </button>
-      </div>
-
-      {/* Результат */}
-      {result && (
-        <div className="pt-2 space-y-2">
-          {result.error && (
-            <div className="text-sm text-rose-300/90">
-              Ошибка: {String(result.error)}
-            </div>
-          )}
-
-          {typeof result.correct === "boolean" && (
-            <div
-              className={`inline-block rounded-lg px-2.5 py-1 text-sm ${
-                result.correct
-                  ? "bg-emerald-400/15 text-emerald-300"
-                  : "bg-rose-400/15 text-rose-300"
-              }`}
-            >
-              {result.correct ? "Верно" : "Неверно"}
-              {typeof result.brier === "number" && (
-                <span className="ml-2 opacity-80">
-                  • Brier: {result.brier.toFixed(3)}
-                </span>
-              )}
-            </div>
-          )}
-
+      {result?.error && (
+        <div className="mt-3 text-rose-400">Error: {result.error}</div>
+      )}
+      {result && !result?.error && (
+        <div className="mt-3">
+          <div className={result.correct ? "text-emerald-400" : "text-rose-400"}>
+            {result.correct ? "Верно" : "Неверно"}
+            {typeof result.brier === "number" && (
+              <span className="ml-2 opacity-80">• Brier: {result.brier.toFixed(3)}</span>
+            )}
+          </div>
           {result.correctAnswer && (
-            <div className="text-sm text-white/80">
-              Правильный ответ:{" "}
-              <span className="font-semibold">{String(result.correctAnswer)}</span>
+            <div className="mt-1 text-slate-300">
+              Правильный ответ: <b>{result.correctAnswer}</b>
             </div>
           )}
-
           {result.explanation_md && (
-            <div className="text-sm text-white/80 whitespace-pre-wrap">
+            <div className="mt-2 text-slate-300 whitespace-pre-wrap">
               {result.explanation_md}
             </div>
           )}
@@ -199,4 +112,4 @@ export default function QuestionCard({ q, onSubmit }) {
       )}
     </div>
   );
-          }
+}
